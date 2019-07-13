@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+
+import time, sys
+import numpy as np
+from os import listdir
+from collections import namedtuple
+import pickle
+
+
+DictElem = namedtuple("DictElem", "index file")
+
+from hdlib.pyhdlib import hd_encode as hd
+
+
+def checkInclusion(partial_index, index):
+    for i, bit in enumerate(partial_index):
+        if bit == 1:
+            if bit != index[i]:
+                return 0
+    return 1
+
+
+
+def queryDictionary(encoder, dict, query):
+    partial_index = encoder.encodeText(query)
+    matches = []
+
+    for entry in dict:
+        included = checkInclusion(partial_index, entry.index)
+        if included:
+            matches.append(entry.file)
+
+    return matches
+
+
+def printMatchedFiles(matches):
+    for match in matches:
+        f = open(match, "r")
+        print("File: {}\tContent: '{}'\n".format(match, f.read()))
+        f.close()
+
+def main():
+
+    with open('dictionary.bin', 'rb') as fp:
+        dict = pickle.load(fp)
+        fp.close()
+    with open('encoder.bin', 'rb') as fp:
+        encoder = pickle.load(fp)
+        fp.close()
+
+    query = "scopo controllo da geopolitica"
+    print("Searching query '{}'...".format(query))
+    matches = queryDictionary(encoder, dict, query)
+    printMatchedFiles(matches)
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+
+import time, sys
+import numpy as np
+from os import listdir
+from collections import namedtuple
+import pickle
+
+DictElem = namedtuple("DictElem", "index file")
+
+from hdlib.pyhdlib import hd_encode as hd
+
+# init HD encoder
+ngramm = 3
+encoding = "sumNgramm"
+nitem = 26
+D = 10000
+sparsity = 99988
+resolution = 100000
+device = 'cpu'
+
+# Return path of all files to process
+def load_files(path):
+    files = listdir(path)
+    # italian_files = [file for file in files if file[0:2]=='it']
+    # print("Ita: {}/{}".format(len(italian_files), len(files)))
+    return [path + "/" + file for file in files]
+
+def count_zeroes(index):
+    count = 0
+    for bit in index:
+        if bit == 0:
+            count += 1
+    return count
+
+
+def generate_dictionary(encoder, files):
+
+    dictionary = []
+
+    for i, file in enumerate(files):
+        f = open(file, "r")
+        # compute index hypervector
+        text = f.read()
+        # print("Text: '{}'".format(text))
+        index_hv = encoder.encodeText(text)
+        print(count_zeroes(index_hv))
+        dictionary.append(DictElem(index=index_hv, file=file))
+        f.close()
+
+    return dictionary
+
+
+def main():
+    path = "HDC-Language-Recognition/testing_texts"
+    files = load_files(path)
+    encoder = hd.hd_encode(D, encoding, device, nitem, ngramm, sparsity, resolution)
+    dict = generate_dictionary(encoder, files)
+    with open('dictionary.bin', 'wb') as fp:
+        pickle.dump(dict, fp)
+        fp.close()
+    with open('encoder.bin', 'wb') as fp:
+        pickle.dump(encoder, fp)
+        fp.close()
+
+if __name__ == '__main__':
+    main()
+
