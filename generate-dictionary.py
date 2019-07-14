@@ -34,8 +34,20 @@ def count_zeroes(index):
     return count
 
 
+def exportDictionaryToCSV(file, dict):
+    with open(file, mode='w') as fp:
+        for entry in dict:
+            fp.write(entry.file)
+            fp.write(',')
+            for bit in entry.index:
+                fp.write(bit)
+            fp.write('\n')
+        fp.close()
+
+
 def generate_dictionary(encoder, files):
 
+    encoder = hd.hd_encode(D, encoding, device, nitem, ngramm, sparsity, resolution)
     dictionary = []
 
     for i, file in enumerate(files):
@@ -48,21 +60,33 @@ def generate_dictionary(encoder, files):
         dictionary.append(DictElem(index=index_hv, file=file))
         f.close()
 
-    return dictionary
+    return dictionary, encoder
 
 
-def main():
-    path = "HDC-Language-Recognition/testing_texts"
-    files = load_files(path)
-    encoder = hd.hd_encode(D, encoding, device, nitem, ngramm, sparsity, resolution)
-    dict = generate_dictionary(encoder, files)
-    with open('dictionary.bin', 'wb') as fp:
+
+def main(D, i_filepath, o_filepath):
+    files = load_files(i_filepath)
+    dict, enc = generate_dictionary(encoder, files)
+    enc.exportItemMemory(o_filepath+"/itemmemory.bin")
+    enc.exportItemMemoryToCSV(o_filepath+"/itemmemory.csv")
+    exportDictionaryToCSV(o_filepath+'/dictionary.csv', dict)
+
+    # export dictionary also as binary
+    with open(o_filepath+'/dictionary.bin', 'wb') as fp:
         pickle.dump(dict, fp)
-        fp.close()
-    with open('encoder.bin', 'wb') as fp:
-        pickle.dump(encoder, fp)
         fp.close()
 
 if __name__ == '__main__':
-    main()
+    # Command-line arguments are:
+    # D, input files path, output files path
+    argcount = 3
+    if sys.argc != argcount:
+        print("Program requires {} arguments: <D> <input file path> <output file path>".format(argcount))
+        return 0
+    global D
+    D = int(sys.argv[0])
+    i_filepath = sys.argv[1]
+    o_filepath = sys.argv[2]
+    main(D, i_filepath, o_filepath)
+    return 1
 
