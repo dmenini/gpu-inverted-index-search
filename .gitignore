@@ -1,4 +1,5 @@
 HDC-Language-Recognition
 hdlib
-*.bin
+bin
+out
 .idea
