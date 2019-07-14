@@ -15,7 +15,7 @@ ngramm = 3
 encoding = "sumNgramm"
 nitem = 26
 D = 10000
-sparsity = 99988
+sparsity = 99800
 resolution = 100000
 device = 'cpu'
 
@@ -40,12 +40,12 @@ def exportDictionaryToCSV(file, dict):
             fp.write(entry.file)
             fp.write(',')
             for bit in entry.index:
-                fp.write(bit)
+                fp.write(str(bit.item()))
             fp.write('\n')
         fp.close()
 
 
-def generate_dictionary(encoder, files):
+def generate_dictionary(files):
 
     encoder = hd.hd_encode(D, encoding, device, nitem, ngramm, sparsity, resolution)
     dictionary = []
@@ -64,29 +64,32 @@ def generate_dictionary(encoder, files):
 
 
 
-def main(D, i_filepath, o_filepath):
+def main():
+
+    # Command-line arguments are:
+    # D, input files path, output files path
+    argcount = 3
+    if len(sys.argv) != (argcount+1):
+        print("Program requires {} arguments: <D> <input file path> <output file path>".format(argcount))
+        return 0
+    global D
+    D = int(sys.argv[1])
+    i_filepath = sys.argv[2]
+    o_filepath = sys.argv[3]
+
     files = load_files(i_filepath)
-    dict, enc = generate_dictionary(encoder, files)
-    enc.exportItemMemory(o_filepath+"/itemmemory.bin")
+    dict, enc = generate_dictionary(files)
+    enc.exportItemMemory(o_filepath + '/itemmemory.bin')
     enc.exportItemMemoryToCSV(o_filepath+"/itemmemory.csv")
     exportDictionaryToCSV(o_filepath+'/dictionary.csv', dict)
 
     # export dictionary also as binary
-    with open(o_filepath+'/dictionary.bin', 'wb') as fp:
+    with open(o_filepath+'/dictionary.bin', 'wb+') as fp:
         pickle.dump(dict, fp)
         fp.close()
 
-if __name__ == '__main__':
-    # Command-line arguments are:
-    # D, input files path, output files path
-    argcount = 3
-    if sys.argc != argcount:
-        print("Program requires {} arguments: <D> <input file path> <output file path>".format(argcount))
-        return 0
-    global D
-    D = int(sys.argv[0])
-    i_filepath = sys.argv[1]
-    o_filepath = sys.argv[2]
-    main(D, i_filepath, o_filepath)
     return 1
+
+if __name__ == '__main__':
+    main()
 
