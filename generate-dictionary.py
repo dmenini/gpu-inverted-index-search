@@ -15,8 +15,9 @@ ngramm = 3
 encoding = "sumNgramm"
 nitem = 26
 D = 10000
-sparsity = 99800
-resolution = 100000
+N_FILES = 21007
+sparsity = 9980
+resolution = 10000
 device = 'cpu'
 
 # Return path of all files to process
@@ -24,7 +25,7 @@ def load_files(path):
     files = listdir(path)
     # italian_files = [file for file in files if file[0:2]=='it']
     # print("Ita: {}/{}".format(len(italian_files), len(files)))
-    return [path + "/" + file for file in files]
+    return [path + "/" + file for file in files[0:N_FILES]]
 
 def count_zeroes(index):
     count = 0
@@ -33,6 +34,12 @@ def count_zeroes(index):
             count += 1
     return count
 
+
+def exportFiles(file, dict):
+    with open(file, mode='w') as fp:
+        for entry in dict:
+            fp.write(entry.file + "\n")
+        fp.close()
 
 def exportDictionaryToCSV(file, dict):
     with open(file, mode='w') as fp:
@@ -44,10 +51,70 @@ def exportDictionaryToCSV(file, dict):
             fp.write('\n')
         fp.close()
 
+# Useful for debug
+def exportInvertedDictionaryToCSV(file, dict):
+    indeces = []
+    for entry in dict:
+        indeces.append(entry.index.tolist())
+    mat = np.array(indeces)
+    mat = np.transpose(mat)
+    with open(file, mode='w') as fp:
+        for i in range(mat.shape[0]):
+            for j in range(mat.shape[1]):
+                fp.write(str(mat[i, j].item()))
+                if j != (mat.shape[1]-1):
+                    fp.write(',')
+                else:
+                    fp.write('\n')
+        fp.close()
 
-def generate_dictionary(files):
+def bin2dec(word):
+    res = 0
+    for i, bit in enumerate(word):
+        res += 2**i * bit
+    return res
 
-    encoder = hd.hd_encode(D, encoding, device, nitem, ngramm, sparsity, resolution)
+def exportInvertedDictionaryToInt(file, dict):
+    indeces = []
+    for entry in dict:
+        indeces.append(entry.index.tolist())
+    mat = np.array(indeces)
+    mat = np.transpose(mat)
+    word = []
+    word_range = (mat.shape[1]//32)*32
+    remainder_range = mat.shape[1]%32
+    with open(file, mode='w') as fp:
+        for i in range(mat.shape[0]):
+            for j in range(word_range):
+                word.append(mat[i, j].item())
+                if len(word) == 32:
+                    word.reverse()
+                    dec_word = bin2dec(word)
+                    fp.write(str(dec_word) + ' ')
+                    word.clear()
+            for k in range(remainder_range):
+                word.append(mat[i, word_range+k].item())
+            word.reverse()
+            dec_word = bin2dec(word)
+            fp.write(str(dec_word) + '\n')
+            word.clear()
+
+        fp.close()
+
+def exportInvertedDictionary(file, dict):
+    indeces = []
+    for entry in dict:
+        indeces.append(entry.index.tolist())
+    mat = np.array(indeces)
+    mat = np.transpose(mat)
+    with open(file, mode='w') as fp:
+        for i in range(mat.shape[0]):
+            for j in range(mat.shape[1]):
+                fp.write(str(mat[i, j].item()))
+        fp.close()
+
+def generate_dictionary(encoder, files):
+
     dictionary = []
 
     for i, file in enumerate(files):
@@ -60,7 +127,7 @@ def generate_dictionary(files):
         dictionary.append(DictElem(index=index_hv, file=file))
         f.close()
 
-    return dictionary, encoder
+    return dictionary
 
 
 
@@ -68,22 +135,27 @@ def main():
 
     # Command-line arguments are:
     # D, input files path, output files path
-    argcount = 3
+    argcount = 5
     if len(sys.argv) != (argcount+1):
-        print("Program requires {} arguments: <D> <input file path> <output file path>".format(argcount))
+        print("Program requires {} arguments: <D> <N_FILES> <input file path> <output file path> <gen_item_mem>".format(argcount))
         return 0
     global D
+    global N_FILES
     D = int(sys.argv[1])
-    i_filepath = sys.argv[2]
-    o_filepath = sys.argv[3]
+    N_FILES = int(sys.argv[2])
+    i_filepath = sys.argv[3]
+    o_filepath = sys.argv[4]
+    gen_item_mem = int(sys.argv[5])
 
     files = load_files(i_filepath)
-    dict, enc = generate_dictionary(files)
-    enc.exportItemMemory(o_filepath + '/itemmemory.bin')
-    enc.exportItemMemoryToCSV(o_filepath+"/itemmemory.csv")
+    enc = hd.hd_encode(D, encoding, device, nitem, ngramm, sparsity, resolution, gen_item_mem, o_filepath)
+    dict = generate_dictionary(enc, files)
+    exportFiles(o_filepath + '/files.txt', dict)
     exportDictionaryToCSV(o_filepath+'/dictionary.csv', dict)
+    exportInvertedDictionaryToInt(o_filepath+'/inv_dictionary.int', dict)
+    exportInvertedDictionaryToCSV(o_filepath+'/inv_dictionary.csv', dict)
 
-    # export dictionary also as binary
+    # Export dictionary also as binary
     with open(o_filepath+'/dictionary.bin', 'wb+') as fp:
         pickle.dump(dict, fp)
         fp.close()
