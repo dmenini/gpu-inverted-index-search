@@ -61,7 +61,6 @@ def main():
         print("Program requires {} arguments: <D> <item mem path> <dict input file> <output file path> <query>".format(argcount))
         return 0
     global D
-    global N_FILES
     D = int(sys.argv[1])
     itemmem_file = sys.argv[2]
     dict_file = sys.argv[3]

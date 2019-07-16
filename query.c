@@ -68,7 +68,7 @@ void load_files(char file[]) {
 
 	for(int i = 0; i<N_FILES; i++) {
 		fscanf(fp, "%s", files[i]);
-		printf("%d: %s\n", i, files[i]);
+		// printf("%d: %s\n", i, files[i]);
 	}
 }
 
@@ -117,13 +117,13 @@ void load_query(char file[]){
 		fscanf(fp, "%c", &query[i]);
 	}
 
-	printf("Loaded query: ");
+	// printf("Loaded query: ");
 
-	for (int i=0; i<D; i++) {
-		printf("%c", query[i]);
-	}
+	// for (int i=0; i<D; i++) {
+	// 	printf("%c", query[i]);
+	// }
 
-	printf("\n");
+	// printf("\n");
 
 	fclose(fp);
 
@@ -142,16 +142,16 @@ unsigned int queryDictionary() {
 
 	for(int i = 0; i<D; i++) {
 		if (query[i] == '1') {
-			printf("%u: ", i);
+			// printf("%u: ", i);
 			for(int j=0; j<INV_DICT_WIDTH; j++){
-				printf("match[%u]: %u\tdict[%u]: %u\t", j, match_idx[j], j, inv_dictionary[i][j]);
+				// printf("match[%u]: %u\tdict[%u]: %u\t", j, match_idx[j], j, inv_dictionary[i][j]);
 				match_idx[j] = match_idx[j] & inv_dictionary[i][j];
-				printf("res[%u]: %u\n", j, match_idx[j]);
+				// printf("res[%u]: %u\n", j, match_idx[j]);
 			}
 		}
 	}
 
-	printf("High bits: ");
+	// printf("High bits: ");
 	int j = 0;
 	for(j=0; j<INV_DICT_WIDTH-1; j++) {
 		temp_div = match_idx[j];
@@ -159,9 +159,9 @@ unsigned int queryDictionary() {
 			curr_bit = temp_div%2;
 			temp_div = temp_div/2;
 			if(curr_bit==1) {
-				printf("%u", i);
+				// printf("%u", i);
 				file_index = (j + 1)*sizeof(int)*8 - i;
-				printf("(%u) ", file_index);
+				// printf("(%u) ", file_index);
 				strcpy(matches[match_cnt], files[file_index]);
 				match_cnt++;
 			}
@@ -173,9 +173,9 @@ unsigned int queryDictionary() {
 		curr_bit = temp_div%2;
 		temp_div = temp_div/2;
 		if(curr_bit==1) {
-			printf("%u", i);
+			// printf("%u", i);
 			file_index = j*sizeof(int)*8 + INV_DICT_REMAINDER - i;
-			printf("(%u) ", file_index);
+			// printf("(%u) ", file_index);
 			strcpy(matches[match_cnt], files[file_index]);
 			match_cnt++;
 		}
@@ -224,7 +224,7 @@ int main(int argc, char **argv){
 	load_query(query_file);
 
 	queryDictionary(query);
-	// printMatchedFiles();
+	printMatchedFiles();
 
 	return 0;
 }

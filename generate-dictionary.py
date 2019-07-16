@@ -16,27 +16,28 @@ encoding = "sumNgramm"
 nitem = 26
 D = 10000
 N_FILES = 21007
-sparsity = 9980
-resolution = 10000
+SPARSITY = 9980
 device = 'cpu'
 
 # Progress bar
 def progress(count, total, status=''):
 
     bar_len = 60
-    filled_len = int(round(bar_len * count / float(total)))
+    filled_len = int(round(bar_len * count / float(total-1)))
 
-    percents = round(100.0 * count / float(total), 1)
+    percents = round(100.0 * count / float(total-1), 1)
     bar = '=' * filled_len + '-' * (bar_len - filled_len)
 
-    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
+    sys.stdout.write('[%s] %s%s %s\r' % (bar, percents, '%', status))
     sys.stdout.flush()
+
+    if count == total-1:
+        print("\n")
 
 
 # Return path of all files to process
 def load_files(path):
-
-    files = listdir(path)
+    files = [file for file in listdir(path) if file.endswith('.txt')]
     # italian_files = [file for file in files if file[0:2]=='it']
     # print("Ita: {}/{}".format(len(italian_files), len(files)))
     return [path + "/" + file for file in files[0:N_FILES]]
@@ -137,7 +138,7 @@ def exportInvertedDictionaryToInt(file, dict):
             dec_word = bin2dec(word)
             fp.write(str(dec_word) + '\n')
             word.clear()
-            # progress(i, mat.shape[0], status='Inverting the dictionary...')
+            progress(i, mat.shape[0], status='Inverting the dictionary...')
         fp.close()
 
 
@@ -160,20 +161,24 @@ def exportInvertedDictionary(file, dict):
 
 
 # Generate dictionary (array of encoded entries)
-def generate_dictionary(encoder, files):
+def generate_dictionary(encoder, files, report):
 
     dictionary = []
+    rep = open(report, 'w+')
 
     for i, file in enumerate(files):
         f = open(file, "r")
+        rep.write(file+'\t')
         # compute index hypervector
         text = f.read()
         # print("Text: '{}'".format(text))
-        index_hv = encoder.encodeText(text)
-        print(count_zeroes(index_hv))
+        index_hv = encoder.encodeText(text, rep)
+        rep.write("{}\n".format(count_zeroes(index_hv)))
         dictionary.append(DictElem(index=index_hv, file=file))
         f.close()
-        # progress(i, N_FILES, status='Generating the dictionary...')
+        progress(i, N_FILES, status='Generating the dictionary...')
+
+    rep.close()
 
     return dictionary
 
@@ -182,27 +187,30 @@ def generate_dictionary(encoder, files):
 def main():
 
     # Command-line arguments are:
-    argcount = 6
+    argcount = 7
     if len(sys.argv) != (argcount+1):
-        print("Program requires {} arguments: <D> <N_FILES> <input file path> <output file path> <gen_item_mem> <generate_dictionary>".format(argcount))
+        print("Program requires {} arguments: <D> <SPARSITY> <N_FILES> <input file path> <output file path> <gen_item_mem> <generate_dictionary>".format(argcount))
         return 0
     global D
     global N_FILES
+    global SPARSITY
     D = int(sys.argv[1])
-    N_FILES = int(sys.argv[2])
-    i_filepath = sys.argv[3]
-    o_filepath = sys.argv[4]
-    gen_item_mem = int(sys.argv[5])
-    gen_dict = int(sys.argv[6])
+    SPARSITY = int(sys.argv[2])
+    N_FILES = int(sys.argv[3])
+    i_filepath = sys.argv[4]
+    o_filepath = sys.argv[5]
+    gen_item_mem = int(sys.argv[6])
+    gen_dict = int(sys.argv[7])
 
     dict = []
     files = load_files(i_filepath)
-    enc = hd.hd_encode(D, encoding, device, nitem, ngramm, sparsity, resolution, gen_item_mem, o_filepath)
+    enc = hd.hd_encode(D, encoding, device, nitem, ngramm, SPARSITY, gen_item_mem, o_filepath)
     
     dict_file = o_filepath+'/dictionary.bin'
+    report_file = o_filepath+'/dict_report.txt'
     if gen_dict != 0:
         print("Generating dictionary...")
-        dict = generate_dictionary(enc, files)
+        dict = generate_dictionary(enc, files, report_file)
         exportFiles(o_filepath + '/files.txt', dict)
         exportDictionaryToCSV(o_filepath + '/dictionary.csv', dict)
         # Export dictionary as binary
