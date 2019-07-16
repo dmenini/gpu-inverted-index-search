@@ -4,10 +4,20 @@ CFLAGS := -std=c99
 dict_dir := ./out
 D ?= 10000
 N_FILES ?= 21007
-QUERY ?= "scopo tua madre"
+QUERY ?= "scopo"
+
+clean:
+	rm -rf bin
+	rm -rf out
+
+setup: clean
+	rm -rf hdlib
+	rm -rf HDC-Language-Recognition
+	git clone https://github.com/bigcola317/hdlib.git
+	git clone https://github.com/abbas-rahimi/HDC-Language-Recognition.git
 
 dict:
-	${PYTHON} generate-dictionary.py ${D} ${N_FILES} ./HDC-Language-Recognition/testing_texts ${dict_dir} 0
+	${PYTHON} generate-dictionary.py ${D} ${N_FILES} ./HDC-Language-Recognition/testing_texts ${dict_dir} 0 1
 
 query:
 	${PYTHON} query-dictionary.py ${D} ${dict_dir} ${dict_dir}/dictionary.bin ${dict_dir} ${QUERY}
