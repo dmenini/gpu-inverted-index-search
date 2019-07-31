@@ -1,11 +1,17 @@
-PYTHON := /home/sem19f29/miniconda3/envs/hdlib-env/bin/python3.6
+PYTHON := ~/miniconda3/envs/hdlib-env/bin/python3.6
 
 CFLAGS := -std=c99
+LFLAGS := -lm
 dict_dir := ./out
 D ?= 10000
-SPARSITY ?= 2
-N_FILES ?= 21007
+SPARSITY ?= 5
+N_FILES ?= 21000
 QUERY ?= "scopo"
+PROFILING ?= 0
+
+ifeq ($(PROFILING), 1)
+	CFLAGS += -DPROFILING
+endif
 
 clean:
 	rm -rf bin
@@ -21,13 +27,21 @@ dict:
 	${PYTHON} generate-dictionary.py ${D} ${SPARSITY} ${N_FILES} ./HDC-Language-Recognition/testing_texts ${dict_dir} 0 1
 
 query:
-	${PYTHON} query-dictionary.py ${D} ${dict_dir} ${dict_dir}/dictionary.bin ${dict_dir} ${QUERY}
+	${PYTHON} query-dictionary.py ${D} ${SPARSITY} ${dict_dir} ${dict_dir}/dictionary.bin ${dict_dir} ${QUERY}
 
-compile:
-	gcc ${CFLAGS} -o bin/query -DD=${D} -DN_FILES=${N_FILES} query.c
+compile-c:
+	gcc $(CFLAGS) -S -DD=${D} -DN_FILES=${N_FILES} query.c
+	mv query.s bin/
+	gcc $(CFLAGS) -o bin/query bin/query.s ${LFLAGS}
+query-c: compile-c
+	./bin/query ${dict_dir}/files.txt ${dict_dir}/inv_dictionary.int ${dict_dir}/query.txt ${dict_dir}
 
-inv-query-c: compile
-	./bin/query ${dict_dir}/files.txt ${dict_dir}/inv_dictionary.int ${dict_dir}/query.txt
+# profile-c: compile-c
+# 	./bin/query ${dict_dir}/files.txt ${dict_dir}/inv_dictionary.int ${dict_dir}/query.txt ${dict_dir}
+# 	mv gmon.out out/
+# 	gprof -pqueryDictionary -l bin/query out/gmon.out > out/c_prof.txt
+# 	# rm out/gmon.out
+
 
 new-dict:
 	${PYTHON} generate-dictionary.py ${D} ${SPARSITY} ${N_FILES} ./HDC-Language-Recognition/testing_texts ${dict_dir} 1 1

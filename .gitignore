@@ -3,3 +3,5 @@ hdlib
 bin
 out
 .idea
+backup
+__pycache__

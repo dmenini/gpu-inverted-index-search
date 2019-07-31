@@ -1,16 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h> 
+#include <math.h>
+#include <time.h> 
 
-#define ARG_COUNT 			3
+#define ARG_COUNT 			4
 
 #ifndef D
 	#define D 				10000
 #endif
 
 #ifndef N_FILES
-	#define N_FILES 		21007
+	#define N_FILES 		21000
 #endif
 
 #define N_CHAR 	 			26
@@ -20,6 +21,7 @@
 #define INV_DICT_WIDTH		((N_FILES / (sizeof(int)*8)) + 1)
 #define INV_DICT_REMAINDER	(N_FILES % (sizeof(int)*8))
 #define INV_DICT_SIZE		(D*INV_DICT_WIDTH)
+#define BAR_LEN				60
 
 char files[N_FILES][MAX_FILE_NAME];
 char dictionary[N_FILES][D+1];
@@ -129,18 +131,33 @@ void load_query(char file[]){
 
 }
 
+void printProgress(int count, int total, char* status) {
+	int filled_len = (int)ceil((double)(BAR_LEN * count / (total-1.0)));
+	int percent = (int)ceil((double)(100.0 * count / (total-1.0)));
+	char bar[400];
+	int i = 0;
+	for (; i<filled_len; i++) {
+		bar[i] = '=';
+	}
+	for(; i<BAR_LEN; i++) {
+		bar[i] = '-';
+	}
+	bar[i] = '\0';
+	printf("[%s] %d%% %s\r", bar, percent, status);
+	if (count == total-1)
+		printf("\n");
+}
+
 unsigned int queryDictionary() {
 	unsigned int file_index = 0;
 	unsigned int temp_div = 0;
 	unsigned short curr_bit = 0;
 
-	for(int j=0; j<INV_DICT_WIDTH; j++) {
-		match_idx[j] = 0xFFFFFFFF;
-	}
-
 //////////////////////////     COMPUTATION STARTS HERE    //////////////////////////////////////////////
-
 	for(int i = 0; i<D; i++) {
+		#ifndef PROFILING
+			printProgress(i, D, "Generating match index...");
+		#endif
 		if (query[i] == '1') {
 			// printf("%u: ", i);
 			for(int j=0; j<INV_DICT_WIDTH; j++){
@@ -166,6 +183,9 @@ unsigned int queryDictionary() {
 				match_cnt++;
 			}
 		}
+		#ifndef PROFILING
+			printProgress(j, INV_DICT_WIDTH, "Finding matches from index...");
+		#endif
 	}
 	// Last iteration (j already incremented) moved outside loop for remainder!=32bits
 	temp_div = match_idx[j];
@@ -180,42 +200,58 @@ unsigned int queryDictionary() {
 			match_cnt++;
 		}
 	}
+	#ifndef PROFILING
+		printProgress(j, INV_DICT_WIDTH, "Finding matches from index...");
+	#endif
 
 //////////////////////////    COMPUTATION ENDS HERE    //////////////////////////////////////////////
-
 }    
 
-void printMatchedFiles(){
+void reportQuery(char* report_f){
 	FILE *fp = NULL;
+	FILE *rep = fopen(report_f, "w+");
 
 	for (int i=0; i < match_cnt; i++){
 		char text[MAX_TEXT_SIZE];
-		fp = fopen(matches[i], "r");
-		if (fp == NULL){
-			printf("Error while opening '%s'\n", matches[i]);
-		}
-		fgets(text, fsize(fp), fp);
-		printf("File: %s\tContent: '%s'\n", matches[i], text);
-		fclose(fp);
+		// fp = fopen(matches[i], "r");
+		// if (fp == NULL){
+			// printf("Error while opening '%s'\n", matches[i]);
+		// }
+		// fgets(text, fsize(fp), fp);
+		// fprintf(rep, "%s,'%s'\n", matches[i], text);
+		fprintf(rep, "%s\n", matches[i]);
+		// fclose(fp);
 	}
+	fclose(rep);
 }
+
 
 int main(int argc, char **argv){
 
 	// Command-line arguments:
 	// D, itemmem input file, dictionary input file, query
 	if(argc != (ARG_COUNT+1)){
-		printf("Requires arguments: <files input file> <dictionary input file> <query input file>\n");
+		printf("Requires arguments: <files input file> <dictionary input file> <query input file> <output directory>\n");
 		return 1;
 	}
 
 	char files_file[MAX_FILE_NAME]; 
 	char dict_file[MAX_FILE_NAME];  
 	char query_file[MAX_FILE_NAME];
+	char output_dir[MAX_FILE_NAME];
+	char report_file[MAX_FILE_NAME];
+
+	printf("%s\n", argv[1]);
+	printf("%s\n", argv[2]);
+	printf("%s\n", argv[3]);
+	printf("%s\n", argv[4]);	
 
 	sprintf(files_file, "%s", argv[1]);
 	sprintf(dict_file, "%s", argv[2]);
 	sprintf(query_file, "%s", argv[3]);
+	sprintf(output_dir, "%s", argv[4]);
+
+
 
 	printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
 
@@ -223,8 +259,49 @@ int main(int argc, char **argv){
 	load_inv_dictionary(dict_file);
 	load_query(query_file);
 
+	sprintf(report_file, "%s/c_query_report.txt", output_dir);
+
+	for(int j=0; j<INV_DICT_WIDTH; j++) {
+		match_idx[j] = 0xFFFFFFFF;
+	}
 	queryDictionary(query);
-	printMatchedFiles();
+	reportQuery(report_file);
+
+	return 0;
+}
+
+
+int main_py(int argc, char **argv){
+
+	// Command-line arguments:
+	// D, itemmem input file, dictionary input file, query
+	if(argc != (ARG_COUNT)){
+		printf("Requires arguments: <files input file> <dictionary input file> <query input file> <output directory>\n");
+		return 1;
+	}
+
+	char files_file[MAX_FILE_NAME]; 
+	char dict_file[MAX_FILE_NAME];  
+	char query_file[MAX_FILE_NAME];
+	char output_dir[MAX_FILE_NAME];
+	char report_file[MAX_FILE_NAME];
+
+	sprintf(files_file, "%s", argv[0]);
+	sprintf(dict_file, "%s", argv[1]);
+	sprintf(query_file, "%s", argv[2]);
+	sprintf(output_dir, "%s", argv[3]);
+
+	printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
+
+	load_files(files_file);
+	load_inv_dictionary(dict_file);
+	load_query(query_file);
+
+	sprintf(report_file, "%s/c_query_report.txt", output_dir);
+
+	for(int j=0; j<INV_DICT_WIDTH; j++) {
+		match_idx[j] = 0xFFFFFFFF;
+	}
 
 	return 0;
 }

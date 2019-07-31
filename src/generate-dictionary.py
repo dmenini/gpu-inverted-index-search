@@ -9,31 +9,16 @@ import pickle
 DictElem = namedtuple("DictElem", "index file")
 
 from hdlib.pyhdlib import hd_encode as hd
+from util_lib import ProgressBar
 
 # init HD encoder
 ngramm = 3
 encoding = "sumNgramm"
 nitem = 26
 D = 10000
-N_FILES = 21007
+N_FILES = 21000
 SPARSITY = 9980
 device = 'cpu'
-
-# Progress bar
-def progress(count, total, status=''):
-
-    bar_len = 60
-    filled_len = int(round(bar_len * count / float(total-1)))
-
-    percents = round(100.0 * count / float(total-1), 1)
-    bar = '=' * filled_len + '-' * (bar_len - filled_len)
-
-    sys.stdout.write('[%s] %s%s %s\r' % (bar, percents, '%', status))
-    sys.stdout.flush()
-
-    if count == total-1:
-        print("\n")
-
 
 # Return path of all files to process
 def load_files(path):
@@ -124,6 +109,7 @@ def exportInvertedDictionaryToInt(file, dict):
     remainder_range = mat.shape[1]%32
 
     with open(file, mode='w') as fp:
+        bar = ProgressBar(mat.shape[0], status='Inverting the dictionary...')
         for i in range(mat.shape[0]):  # mat.shape[0] = D
             for j in range(word_range):
                 word.append(mat[i, j].item())
@@ -138,7 +124,7 @@ def exportInvertedDictionaryToInt(file, dict):
             dec_word = bin2dec(word)
             fp.write(str(dec_word) + '\n')
             word.clear()
-            progress(i, mat.shape[0], status='Inverting the dictionary...')
+            bar.update(i)
         fp.close()
 
 
@@ -166,6 +152,7 @@ def generate_dictionary(encoder, files, report):
     dictionary = []
     rep = open(report, 'w+')
 
+    bar = ProgressBar(N_FILES, status='Generating the dictionary...')
     for i, file in enumerate(files):
         f = open(file, "r")
         rep.write(file+'\t')
@@ -176,7 +163,7 @@ def generate_dictionary(encoder, files, report):
         rep.write("{}\n".format(count_zeroes(index_hv)))
         dictionary.append(DictElem(index=index_hv, file=file))
         f.close()
-        progress(i, N_FILES, status='Generating the dictionary...')
+        bar.update(i)
 
     rep.close()
 
