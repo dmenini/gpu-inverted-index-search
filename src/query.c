@@ -27,7 +27,8 @@ char files[N_FILES][MAX_FILE_NAME];
 char dictionary[N_FILES][D+1];
 unsigned int inv_dictionary[D][INV_DICT_WIDTH];
 char query[D];
-char matches[N_FILES][MAX_FILE_NAME];
+unsigned int query_ones[D];
+unsigned int matches[N_FILES];
 unsigned int match_idx[INV_DICT_WIDTH];
 unsigned int match_cnt = 0;
 
@@ -148,61 +149,57 @@ void printProgress(int count, int total, char* status) {
 		printf("\n");
 }
 
+unsigned int findQueryOnes(char* query){
+	unsigned int ones_cnt = 0;
+	for(unsigned int i=0; i<D; i++) {
+		if(query[i] == '1')
+		{
+			query_ones[ones_cnt] = i;
+			// printf("One position:\t%d\n", i);
+			ones_cnt++; 
+		}
+	}
+	return ones_cnt;
+}
+
 unsigned int queryDictionary() {
-	unsigned int file_index = 0;
+	unsigned int match_pos = 0;
 	unsigned int temp_div = 0;
 	unsigned short curr_bit = 0;
 
 //////////////////////////     COMPUTATION STARTS HERE    //////////////////////////////////////////////
-	for(int i = 0; i<D; i++) {
-		#ifndef PROFILING
-			printProgress(i, D, "Generating match index...");
-		#endif
-		if (query[i] == '1') {
-			// printf("%u: ", i);
+	for(unsigned int i=0; i<D; i++) {
+		if(query[i] == '1') {
 			for(int j=0; j<INV_DICT_WIDTH; j++){
-				// printf("match[%u]: %u\tdict[%u]: %u\t", j, match_idx[j], j, inv_dictionary[i][j]);
 				match_idx[j] = match_idx[j] & inv_dictionary[i][j];
-				// printf("res[%u]: %u\n", j, match_idx[j]);
 			}
 		}
 	}
-
-	// printf("High bits: ");
+	
 	int j = 0;
 	for(j=0; j<INV_DICT_WIDTH-1; j++) {
 		temp_div = match_idx[j];
-		for(int i=1; i<=(sizeof(int)*8) || temp_div>0; i++) {
+		for(int i=1; i<=(sizeof(int)*8) && temp_div>0; i++) {
 			curr_bit = temp_div%2;
 			temp_div = temp_div/2;
 			if(curr_bit==1) {
-				// printf("%u", i);
-				file_index = (j + 1)*sizeof(int)*8 - i;
-				// printf("(%u) ", file_index);
-				strcpy(matches[match_cnt], files[file_index]);
+				match_pos = (j + 1)*sizeof(int)*8 - i;
+				matches[match_cnt] = match_pos;
 				match_cnt++;
 			}
 		}
-		#ifndef PROFILING
-			printProgress(j, INV_DICT_WIDTH, "Finding matches from index...");
-		#endif
 	}
 	// Last iteration (j already incremented) moved outside loop for remainder!=32bits
 	temp_div = match_idx[j];
-	for(int i=1; i<=INV_DICT_REMAINDER || temp_div>0; i++) {
+	for(int i=1; i<=INV_DICT_REMAINDER && temp_div>0; i++) {
 		curr_bit = temp_div%2;
 		temp_div = temp_div/2;
 		if(curr_bit==1) {
-			// printf("%u", i);
-			file_index = j*sizeof(int)*8 + INV_DICT_REMAINDER - i;
-			// printf("(%u) ", file_index);
-			strcpy(matches[match_cnt], files[file_index]);
+			match_pos = j*sizeof(int)*8 + INV_DICT_REMAINDER - i;
+			matches[match_cnt] = match_pos;
 			match_cnt++;
 		}
 	}
-	#ifndef PROFILING
-		printProgress(j, INV_DICT_WIDTH, "Finding matches from index...");
-	#endif
 
 //////////////////////////    COMPUTATION ENDS HERE    //////////////////////////////////////////////
 }    
@@ -213,14 +210,7 @@ void reportQuery(char* report_f){
 
 	for (int i=0; i < match_cnt; i++){
 		char text[MAX_TEXT_SIZE];
-		// fp = fopen(matches[i], "r");
-		// if (fp == NULL){
-			// printf("Error while opening '%s'\n", matches[i]);
-		// }
-		// fgets(text, fsize(fp), fp);
-		// fprintf(rep, "%s,'%s'\n", matches[i], text);
-		fprintf(rep, "%s\n", matches[i]);
-		// fclose(fp);
+		fprintf(rep, "%s\n", files[matches[i]]);
 	}
 	fclose(rep);
 }
@@ -241,19 +231,17 @@ int main(int argc, char **argv){
 	char output_dir[MAX_FILE_NAME];
 	char report_file[MAX_FILE_NAME];
 
-	printf("%s\n", argv[1]);
-	printf("%s\n", argv[2]);
-	printf("%s\n", argv[3]);
-	printf("%s\n", argv[4]);	
+	// printf("%s\n", argv[1]);
+	// printf("%s\n", argv[2]);
+	// printf("%s\n", argv[3]);
+	// printf("%s\n", argv[4]);	
 
 	sprintf(files_file, "%s", argv[1]);
 	sprintf(dict_file, "%s", argv[2]);
 	sprintf(query_file, "%s", argv[3]);
 	sprintf(output_dir, "%s", argv[4]);
 
-
-
-	printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
+	// printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
 
 	load_files(files_file);
 	load_inv_dictionary(dict_file);
@@ -264,44 +252,53 @@ int main(int argc, char **argv){
 	for(int j=0; j<INV_DICT_WIDTH; j++) {
 		match_idx[j] = 0xFFFFFFFF;
 	}
+
+#ifdef PROFILING
+	for (int i = 0; i<10000; i++) {
+		queryDictionary(query);
+		// findQueryOnes(query);
+	}
+#else
 	queryDictionary(query);
+#endif
+
 	reportQuery(report_file);
 
 	return 0;
 }
 
 
-int main_py(int argc, char **argv){
+// int main_py(int argc, char **argv){
 
-	// Command-line arguments:
-	// D, itemmem input file, dictionary input file, query
-	if(argc != (ARG_COUNT)){
-		printf("Requires arguments: <files input file> <dictionary input file> <query input file> <output directory>\n");
-		return 1;
-	}
+// 	// Command-line arguments:
+// 	// D, itemmem input file, dictionary input file, query
+// 	if(argc != (ARG_COUNT)){
+// 		printf("Requires arguments: <files input file> <dictionary input file> <query input file> <output directory>\n");
+// 		return 1;
+// 	}
 
-	char files_file[MAX_FILE_NAME]; 
-	char dict_file[MAX_FILE_NAME];  
-	char query_file[MAX_FILE_NAME];
-	char output_dir[MAX_FILE_NAME];
-	char report_file[MAX_FILE_NAME];
+// 	char files_file[MAX_FILE_NAME]; 
+// 	char dict_file[MAX_FILE_NAME];  
+// 	char query_file[MAX_FILE_NAME];
+// 	char output_dir[MAX_FILE_NAME];
+// 	char report_file[MAX_FILE_NAME];
 
-	sprintf(files_file, "%s", argv[0]);
-	sprintf(dict_file, "%s", argv[1]);
-	sprintf(query_file, "%s", argv[2]);
-	sprintf(output_dir, "%s", argv[3]);
+// 	sprintf(files_file, "%s", argv[0]);
+// 	sprintf(dict_file, "%s", argv[1]);
+// 	sprintf(query_file, "%s", argv[2]);
+// 	sprintf(output_dir, "%s", argv[3]);
 
-	printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
+// 	// printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
 
-	load_files(files_file);
-	load_inv_dictionary(dict_file);
-	load_query(query_file);
+// 	load_files(files_file);
+// 	load_inv_dictionary(dict_file);
+// 	load_query(query_file);
 
-	sprintf(report_file, "%s/c_query_report.txt", output_dir);
+// 	sprintf(report_file, "%s/c_query_report.txt", output_dir);
 
-	for(int j=0; j<INV_DICT_WIDTH; j++) {
-		match_idx[j] = 0xFFFFFFFF;
-	}
+// 	for(int j=0; j<INV_DICT_WIDTH; j++) {
+// 		match_idx[j] = 0xFFFFFFFF;
+// 	}
 
-	return 0;
-}
+// 	return 0;
+// }

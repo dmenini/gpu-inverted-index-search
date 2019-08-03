@@ -33,8 +33,8 @@ C.main_py(argc, argv)
     CODE = '''
 C.queryDictionary()
     '''
-    time = timeit.timeit(setup = SETUP_CODE, stmt = CODE, number=1)
-    print("La query del cazzo ci mette: {}".format(time/1))
+    time = timeit.timeit(setup = SETUP_CODE, stmt = CODE, number=10000)
+    print("CPU Query takes: {}".format(time/10000))
     # C.queryDictionary()
     # C.reportQuery(report_f)
 

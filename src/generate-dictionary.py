@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time, sys
+sys.path.append('/home/sem19f29/hd-bitfunnel-gpu')
 import numpy as np
 from os import listdir
 from collections import namedtuple
@@ -23,8 +24,6 @@ device = 'cpu'
 # Return path of all files to process
 def load_files(path):
     files = [file for file in listdir(path) if file.endswith('.txt')]
-    # italian_files = [file for file in files if file[0:2]=='it']
-    # print("Ita: {}/{}".format(len(italian_files), len(files)))
     return [path + "/" + file for file in files[0:N_FILES]]
 
 
@@ -40,11 +39,12 @@ def count_zeroes(index):
 
 
 # Export text names in an output file
-def exportFiles(file, dict):
+def exportFiles(file, files):
 
     with open(file, mode='w') as fp:
-        for entry in dict:
-            fp.write(entry.file + "\n")
+        for entry in files:
+            # for i in range(8):
+            fp.write(entry + "\n") # str(i) + '_'
         fp.close()
 
 
@@ -161,7 +161,9 @@ def generate_dictionary(encoder, files, report):
         # print("Text: '{}'".format(text))
         index_hv = encoder.encodeText(text, rep)
         rep.write("{}\n".format(count_zeroes(index_hv)))
-        dictionary.append(DictElem(index=index_hv, file=file))
+        # for k in range(8):
+        filename = file # str(k) + '_' +
+        dictionary.append(DictElem(index=index_hv, file=filename))
         f.close()
         bar.update(i)
 
@@ -191,6 +193,7 @@ def main():
 
     dict = []
     files = load_files(i_filepath)
+
     enc = hd.hd_encode(D, encoding, device, nitem, ngramm, SPARSITY, gen_item_mem, o_filepath)
     
     dict_file = o_filepath+'/dictionary.bin'
@@ -198,8 +201,8 @@ def main():
     if gen_dict != 0:
         print("Generating dictionary...")
         dict = generate_dictionary(enc, files, report_file)
-        exportFiles(o_filepath + '/files.txt', dict)
-        exportDictionaryToCSV(o_filepath + '/dictionary.csv', dict)
+        exportFiles(o_filepath + '/files.txt', files)
+        # exportDictionaryToCSV(o_filepath + '/dictionary.csv', dict)
         # Export dictionary as binary
         with open(dict_file, 'wb+') as fp:
             pickle.dump(dict, fp)
@@ -211,7 +214,7 @@ def main():
             fp.close()
 
     exportInvertedDictionaryToInt(o_filepath + '/inv_dictionary.int', dict)
-    exportInvertedDictionaryToCSV(o_filepath + '/inv_dictionary.csv', dict)
+    # exportInvertedDictionaryToCSV(o_filepath + '/inv_dictionary.csv', dict)
 
     return 1
 

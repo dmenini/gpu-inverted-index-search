@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time, sys
+sys.path.append('/home/sem19f29/hd-bitfunnel-gpu')
 import numpy as np
 from os import listdir
 from collections import namedtuple
@@ -52,15 +53,14 @@ def queryDictionary(dict, partial_index):
 def reportQuery(matches, report_f):
     rep = open(report_f, 'w+')
     for match in matches:
-        f = open(match, "r")
+        # f = open(match, "r")
         # rep.write("{},'{}'\n".format(match, f.read()))
         rep.write("{}\n".format(match))
-        f.close()
+        # f.close()
     rep.close()
 
 def main():
     # Command-line arguments are:
-    # D, item memory input file, dict input file, output files path
     argcount = 6
     if len(sys.argv) != (argcount+1):
         print("Program requires {} arguments: <D> <SPARSITY> <item mem path> <dict input file> <output file path> <query>".format(argcount))
