@@ -8,7 +8,7 @@
 #endif
 
 #ifndef N_FILES
-	#define N_FILES 	21024
+	#define N_FILES 	21000
 #endif
 
 #define ARG_COUNT 			4
@@ -34,22 +34,22 @@ __global__ void queryKernel(unsigned int * __restrict__ inv_dictionary, unsigned
 	unsigned short curr_bit = 0;
 	unsigned int match_pos;
 	unsigned int match_cnt = 0;
+	// unsigned int match_idx;
 
-	// __shared__ unsigned int match_idx_s[BLOCK_SIZE];
-	unsigned int match_idx_s;
+	__shared__ unsigned int match_idx_s[BLOCK_SIZE];
 
 	unsigned int index = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if(index < inv_dict_width){ //inv_dict_width = 657
-		match_idx_s = 0xFFFFFFFF;
+		match_idx_s[threadIdx.x] = 0xFFFFFFFF;
 		for(int i = 0; i < ones_cnt; i++) {			
-			match_idx_s = match_idx_s & *(inv_dictionary + query_ones[i]*inv_dict_width_pad + index);
+			match_idx_s[threadIdx.x] = match_idx_s[threadIdx.x] & *(inv_dictionary + query_ones[i]*inv_dict_width_pad + index);
 		}
 
 		match_cnt = 0;
-		for(int j=1; j<=(int_size*8) && match_idx_s>0; j++) {
-			curr_bit = match_idx_s & 1;
-			match_idx_s = match_idx_s >> 1;
+		for(int j=1; j<=(int_size*8) && match_idx_s[threadIdx.x]>0; j++) {
+			curr_bit = match_idx_s[threadIdx.x] & 1;
+			match_idx_s[threadIdx.x] = match_idx_s[threadIdx.x] >> 1;
 			if(curr_bit==1) {
 				match_pos = (index + 1)*int_size*8 - j + 1; // starts indexing at 1 not 0
 				matches[index*int_size*8+match_cnt] = match_pos;
@@ -146,6 +146,7 @@ unsigned int findQueryOnes(char* query){
 		if(query[i] == '1')
 		{
 			query_ones[ones_cnt] = i;
+			printf("One position:\t%d\n", i);
 			ones_cnt++; 
 		}
 	}
@@ -217,8 +218,9 @@ int main(int argc, char** argv){
 		// printf("Allocated arrays...\n");
 
 		cudaMemcpy(d_inv_dict, inv_dictionary, INV_DICT_SIZE*sizeof(unsigned int), cudaMemcpyHostToDevice);
-		cudaMemcpy(d_query_ones, query_ones, ones_cnt*sizeof(unsigned int), cudaMemcpyHostToDevice);
+		cudaError_t err = cudaMemcpy(d_query_ones, query_ones, ones_cnt*sizeof(unsigned int), cudaMemcpyHostToDevice);
 
+		printf("Err: %d\n", err);
 		// printf("Query...\n");
 
 		// for(int i=0; i < num_streams; i++) {

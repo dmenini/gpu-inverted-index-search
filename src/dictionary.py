@@ -19,6 +19,7 @@ nitem = 26
 D = 10000
 N_FILES = 21000
 SPARSITY = 9980
+DUP = 1
 device = 'cpu'
 
 # Return path of all files to process
@@ -43,8 +44,8 @@ def exportFiles(file, files):
 
     with open(file, mode='w') as fp:
         for entry in files:
-            # for i in range(8):
-            fp.write(entry + "\n") # str(i) + '_'
+            for i in range(DUP):
+                fp.write(str(i) + '_' + entry + "\n")
         fp.close()
 
 
@@ -52,35 +53,37 @@ def exportFiles(file, files):
 def exportDictionaryToCSV(file, dict):
 
     with open(file, mode='w') as fp:
-        for entry in dict:
+        bar = ProgressBar(N_FILES, status='Exporting the dictionary to CSV...')
+        for i, entry in enumerate(dict):
             fp.write(entry.file)
             fp.write(',')
             for bit in entry.index:
                 fp.write(str(bit.item()))
             fp.write('\n')
+            bar.update(i)
         fp.close()
 
 
-# Export inverted dictionary entries in an output file (CSV format, useful for debug)
-def exportInvertedDictionaryToCSV(file, dict):
+# # Export inverted dictionary entries in an output file (CSV format, useful for debug)
+# def exportInvertedDictionaryToCSV(file, dict):
 
-    indeces = []
+#     indeces = []
 
-    for entry in dict:
-        indeces.append(entry.index.tolist())
+#     for entry in dict:
+#         indeces.append(entry.index.tolist())
 
-    mat = np.array(indeces)
-    mat = np.transpose(mat)
+#     mat = np.array(indeces)
+#     mat = np.transpose(mat)
 
-    with open(file, mode='w') as fp:
-        for i in range(mat.shape[0]):
-            for j in range(mat.shape[1]):
-                fp.write(str(mat[i, j].item()))
-                if j != (mat.shape[1]-1):
-                    fp.write(',')
-                else:
-                    fp.write('\n')
-        fp.close()
+#     with open(file, mode='w') as fp:
+#         for i in range(mat.shape[0]):
+#             for j in range(mat.shape[1]):
+#                 fp.write(str(mat[i, j].item()))
+#                 if j != (mat.shape[1]-1):
+#                     fp.write(',')
+#                 else:
+#                     fp.write('\n')
+# fp.close()
 
 
 # Convert from binary to decimal
@@ -104,9 +107,12 @@ def exportInvertedDictionaryToInt(file, dict):
 
     mat = np.array(indeces)
     mat = np.transpose(mat)
+
     word = []
-    word_range = (mat.shape[1]//32)*32
+    word_range = (mat.shape[1]//32)*32 
     remainder_range = mat.shape[1]%32
+    # needed to left-pack all bits
+    remaider_space = 32-remainder_range
 
     with open(file, mode='w') as fp:
         bar = ProgressBar(mat.shape[0], status='Inverting the dictionary...')
@@ -118,12 +124,15 @@ def exportInvertedDictionaryToInt(file, dict):
                     dec_word = bin2dec(word)
                     fp.write(str(dec_word) + ' ')
                     word.clear()
-            for k in range(remainder_range):
-                word.append(mat[i, word_range+k].item())
-            word.reverse()
-            dec_word = bin2dec(word)
-            fp.write(str(dec_word) + '\n')
-            word.clear()
+            if remainder_range != 0:
+                for k in range(remainder_range):
+                    word.append(mat[i, word_range+k].item())
+                word.reverse()
+                dec_word = bin2dec(word)<<remaider_space
+                fp.write(str(dec_word) + '\n')
+                word.clear()
+            else:
+                fp.write('\n')
             bar.update(i)
         fp.close()
 
@@ -153,6 +162,7 @@ def generate_dictionary(encoder, files, report):
     rep = open(report, 'w+')
 
     bar = ProgressBar(N_FILES, status='Generating the dictionary...')
+    
     for i, file in enumerate(files):
         f = open(file, "r")
         rep.write(file+'\t')
@@ -161,9 +171,9 @@ def generate_dictionary(encoder, files, report):
         # print("Text: '{}'".format(text))
         index_hv = encoder.encodeText(text, rep)
         rep.write("{}\n".format(count_zeroes(index_hv)))
-        # for k in range(8):
-        filename = file # str(k) + '_' +
-        dictionary.append(DictElem(index=index_hv, file=filename))
+        for k in range(DUP):
+            filename =  str(k) + '_' + file 
+            dictionary.append(DictElem(index=index_hv, file=filename))
         f.close()
         bar.update(i)
 
@@ -175,14 +185,15 @@ def generate_dictionary(encoder, files, report):
 
 def main():
 
-    # Command-line arguments are:
-    argcount = 7
+    # COMMAND-LINE ARGUMENTS
+    argcount = 8
     if len(sys.argv) != (argcount+1):
-        print("Program requires {} arguments: <D> <SPARSITY> <N_FILES> <input file path> <output file path> <gen_item_mem> <generate_dictionary>".format(argcount))
+        print("Program requires {} arguments: <D> <SPARSITY> <N_FILES> <input file path> <output file path> <gen_item_mem> <generate_dictionary> <DUP>".format(argcount))
         return 0
     global D
     global N_FILES
     global SPARSITY
+    global DUP
     D = int(sys.argv[1])
     SPARSITY = int(sys.argv[2])
     N_FILES = int(sys.argv[3])
@@ -190,31 +201,41 @@ def main():
     o_filepath = sys.argv[5]
     gen_item_mem = int(sys.argv[6])
     gen_dict = int(sys.argv[7])
+    DUP = int(sys.argv[8])
+
+    # DUP
+    if DUP <= 0:
+        print("DUP must be > 0.\n")
+    DUP_extension = '_' + str(DUP)
+
+    # FILENAMES
+    dict_bin_file = o_filepath+'/dictionary' + DUP_extension + '.bin'
+    report_file = o_filepath+'/dict' + DUP_extension + '_report.txt'
+    inv_dict_file = o_filepath + '/inv_dictionary' + DUP_extension + '.int'
+    files_file = o_filepath + '/files' + DUP_extension + '.txt'
+    dict_csv_file = o_filepath + '/dictionary' + DUP_extension + '.csv'
 
     dict = []
     files = load_files(i_filepath)
-
     enc = hd.hd_encode(D, encoding, device, nitem, ngramm, SPARSITY, gen_item_mem, o_filepath)
-    
-    dict_file = o_filepath+'/dictionary.bin'
-    report_file = o_filepath+'/dict_report.txt'
+
     if gen_dict != 0:
         print("Generating dictionary...")
         dict = generate_dictionary(enc, files, report_file)
-        exportFiles(o_filepath + '/files.txt', files)
-        # exportDictionaryToCSV(o_filepath + '/dictionary.csv', dict)
         # Export dictionary as binary
-        with open(dict_file, 'wb+') as fp:
+        with open(dict_bin_file, 'wb+') as fp:
             pickle.dump(dict, fp)
             fp.close()
+        exportFiles(files_file, files)
+        exportDictionaryToCSV(dict_csv_file, dict)
     else:
-        with open(dict_file, 'rb') as fp:
-            print("Loading dictionary from '{}'...".format(dict_file))
+        # Load dictionary from binary
+        with open(dict_bin_file, 'rb') as fp:
+            print("Loading dictionary from '{}'...".format(dict_bin_file))
             dict = pickle.load(fp)
             fp.close()
 
-    exportInvertedDictionaryToInt(o_filepath + '/inv_dictionary.int', dict)
-    # exportInvertedDictionaryToCSV(o_filepath + '/inv_dictionary.csv', dict)
+    exportInvertedDictionaryToInt(inv_dict_file, dict)
 
     return 1
 

@@ -4,32 +4,33 @@
 #include <math.h>
 #include <time.h> 
 
-#define ARG_COUNT 			4
+#define ARG_COUNT 			5
 
 #ifndef D
 	#define D 				10000
 #endif
 
 #ifndef N_FILES
-	#define N_FILES 		21000
+	#define N_FILES 		21024
 #endif
 
 #define N_CHAR 	 			26
 #define MAX_FILE_NAME 		100
 #define MAX_TEXT_SIZE 		2000
 
-#define INV_DICT_WIDTH		((N_FILES / (sizeof(int)*8)) + 1)
+#define INV_DICT_WIDTH		((unsigned int)(ceil(N_FILES / (float)(sizeof(int)*8))))
 #define INV_DICT_REMAINDER	(N_FILES % (sizeof(int)*8))
 #define INV_DICT_SIZE		(D*INV_DICT_WIDTH)
 #define BAR_LEN				60
 
 char files[N_FILES][MAX_FILE_NAME];
 char dictionary[N_FILES][D+1];
-unsigned int inv_dictionary[D][INV_DICT_WIDTH];
 char query[D];
+unsigned int* match_idx;
+unsigned int** inv_dictionary;
 unsigned int query_ones[D];
+unsigned int ones_cnt = 0;
 unsigned int matches[N_FILES];
-unsigned int match_idx[INV_DICT_WIDTH];
 unsigned int match_cnt = 0;
 
 int fsize(FILE* fp){
@@ -37,99 +38,6 @@ int fsize(FILE* fp){
 	int size = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 	return size;
-}
-
-void load_dictionary(char file[]){
-
-	FILE *fp = NULL;
-	fp = fopen(file, "r");
-	int i = 0;
-
-	if (fp == NULL){
-		printf("Error while opening %s\n", file);
-	}
-
-	int size = fsize(fp);
-	// printf("Size: %d\n", size);
-
-	while(ftell(fp) < size) {
-    fscanf(fp, "%[^,],%s\n", files[i], dictionary[i]);
-  	// printf("i: %d\nfile: %s\nindex: %s\npos: %d\n", i, dictionary[i].file, dictionary[i].index, ftell(fp));
-    i++;
-  }
-
-  fclose(fp);
-}
-
-void load_files(char file[]) {
-	FILE *fp = NULL;
-	fp = fopen(file, "r");
-
-	if (fp == NULL){
-		printf("Error while opening %s\n", file);
-	}
-
-	for(int i = 0; i<N_FILES; i++) {
-		fscanf(fp, "%s", files[i]);
-		// printf("%d: %s\n", i, files[i]);
-	}
-}
-
-void load_inv_dictionary(char file[]){
-
-	FILE *fp = NULL;
-	fp = fopen(file, "r");
-
-	if (fp == NULL){
-		printf("Error while opening %s\n", file);
-	}
-
-	// int size = fsize(fp);
-	// printf("Size: %d\n", size);
-	// printf("INV_DICT_SIZE: %d\n", INV_DICT_SIZE);
-
-	for(int j = 0; j<D; j++) {
-		int i = 0;
-		for( i=0; i<INV_DICT_WIDTH-1; i++){
-			fscanf(fp, "%u ", &inv_dictionary[j][i]);
-		}
-		fscanf(fp, "%u\n", &inv_dictionary[j][i]);
-	}
-
-	// for (int j =0; j<100; j++) {
-	// 	for (int i =0; i<INV_DICT_WIDTH; i++) {
-	// 		printf("%u ", inv_dictionary[j][i]);
-	// 	}
-	// 	printf("\n");
-	// }
-
-	fclose(fp);
-}
-
-void load_query(char file[]){
-
-	FILE *fp = NULL;
-	fp = fopen(file, "r");
-	int i = 0;
-
-	if (fp == NULL){
-		printf("Error while opening %s\n", file);
-	}
-
-	for (int i=0; i<D; i++) {
-		fscanf(fp, "%c", &query[i]);
-	}
-
-	// printf("Loaded query: ");
-
-	// for (int i=0; i<D; i++) {
-	// 	printf("%c", query[i]);
-	// }
-
-	// printf("\n");
-
-	fclose(fp);
-
 }
 
 void printProgress(int count, int total, char* status) {
@@ -149,13 +57,112 @@ void printProgress(int count, int total, char* status) {
 		printf("\n");
 }
 
+void load_query(char file[]){
+
+	FILE *fp = NULL;
+	fp = fopen(file, "r");
+	int i = 0;
+
+	if (fp == NULL){
+		printf("Error while opening %s\n", file);
+	}
+
+	for (int i=0; i<D; i++) {
+		fscanf(fp, "%c", &query[i]);
+	}
+
+	fclose(fp);
+}
+
+void load_files(char file[]) {
+	FILE *fp = NULL;
+	fp = fopen(file, "r");
+
+	if (fp == NULL){
+		printf("Error while opening %s\n", file);
+	}
+
+	for(int i = 0; i<N_FILES; i++) {
+		fscanf(fp, "%s", files[i]);
+		// printf("%d: %s\n", i, files[i]);
+	}
+}
+
+void load_dictionary(char file[]){
+
+	FILE *fp = NULL;
+	fp = fopen(file, "r");
+	int i = 0, j = 0;
+
+	if (fp == NULL){
+		printf("Error while opening %s\n", file);
+	}
+
+	int size = fsize(fp);
+	char str[MAX_FILE_NAME];
+	// printf("Size: %d\n", size);
+
+	while(ftell(fp) < size) {
+	    fscanf(fp, "%[^,],%s\n", str, dictionary[i]);
+		// printf("%d: ", i);
+	    for(j=0; j<D; j++) {
+	    	dictionary[i][j] = dictionary[i][j] - '0';
+	  		// printf("%d", dictionary[i][j]);
+	  	// 	if(dictionary[i][j]==1)
+				// printf("%d %d\n", i, j);
+		}
+		// printf("\n");
+	    i++;
+ 	}
+ 	printf("final i: %d\n", i);
+
+  fclose(fp);
+}
+
+void load_inv_dictionary(char file[]){
+
+	FILE *fp = NULL;
+	fp = fopen(file, "r");
+
+	if (fp == NULL){
+		printf("Error while opening %s\n", file);
+	}
+
+	// int size = fsize(fp);
+	// printf("Size: %d\n", size);
+	// printf("INV_DICT_SIZE: %d\n", INV_DICT_SIZE);
+
+	int read_cnt = 0;
+
+	for(int j = 0; j<D; j++) {
+		int i = 0;
+		for( i=0; i<INV_DICT_WIDTH-1; i++){
+			read_cnt = fscanf(fp, "%u ", &inv_dictionary[j][i]);
+			if (read_cnt!=1)
+				printf("ERROR! fscanf missed some arguments. i:\t%d\n", i);
+		}
+		read_cnt = fscanf(fp, "%u\n", &inv_dictionary[j][i]);
+		if (read_cnt!=1)
+			printf("ERROR! fscanf missed some arguments. i:\t%d\n", i);
+	}
+
+	// for (int j =0; j<100; j++) {
+	// 	for (int i =0; i<INV_DICT_WIDTH; i++) {
+	// 		printf("%u ", inv_dictionary[j][i]);
+	// 	}
+	// 	printf("\n");
+	// }
+
+	fclose(fp);
+}
+
 unsigned int findQueryOnes(char* query){
-	unsigned int ones_cnt = 0;
+	ones_cnt = 0;
 	for(unsigned int i=0; i<D; i++) {
 		if(query[i] == '1')
 		{
 			query_ones[ones_cnt] = i;
-			// printf("One position:\t%d\n", i);
+			printf("One position:\t%d\n", i);
 			ones_cnt++; 
 		}
 	}
@@ -163,6 +170,28 @@ unsigned int findQueryOnes(char* query){
 }
 
 unsigned int queryDictionary() {
+
+	char result = 1;
+	match_cnt = 0;
+	for(unsigned int j=0; j<N_FILES; j++) {
+		result = 1;
+		for(unsigned int i=0; i<ones_cnt; i++) {
+			// if (result==1)
+				// printf("Bef %d %d:\t%d\n", j, i, result);
+			result = result & dictionary[j][query_ones[i]];
+			if(dictionary[j][query_ones[i]]==1){
+				// printf("Aft %d %d:\t%d\n", j, i, result);
+			}
+		}
+		if (result){
+			printf("Match at pos: %d\n", j);
+			matches[match_cnt] = j;
+			match_cnt++;
+		}
+	}
+}
+
+unsigned int queryInvertedDictionary() {
 	unsigned int match_pos = 0;
 	unsigned int temp_div = 0;
 	unsigned short curr_bit = 0;
@@ -180,8 +209,8 @@ unsigned int queryDictionary() {
 	for(j=0; j<INV_DICT_WIDTH-1; j++) {
 		temp_div = match_idx[j];
 		for(int i=1; i<=(sizeof(int)*8) && temp_div>0; i++) {
-			curr_bit = temp_div%2;
-			temp_div = temp_div/2;
+			curr_bit = temp_div & 1;
+			temp_div = temp_div >> 1;
 			if(curr_bit==1) {
 				match_pos = (j + 1)*sizeof(int)*8 - i;
 				matches[match_cnt] = match_pos;
@@ -218,10 +247,10 @@ void reportQuery(char* report_f){
 
 int main(int argc, char **argv){
 
-	// Command-line arguments:
-	// D, itemmem input file, dictionary input file, query
+	// ARGUMENTS
+
 	if(argc != (ARG_COUNT+1)){
-		printf("Requires arguments: <files input file> <dictionary input file> <query input file> <output directory>\n");
+		printf("Requires arguments: <files input file> <dictionary input file> <query input file> <output directory> <inverted>\n");
 		return 1;
 	}
 
@@ -230,75 +259,61 @@ int main(int argc, char **argv){
 	char query_file[MAX_FILE_NAME];
 	char output_dir[MAX_FILE_NAME];
 	char report_file[MAX_FILE_NAME];
-
-	// printf("%s\n", argv[1]);
-	// printf("%s\n", argv[2]);
-	// printf("%s\n", argv[3]);
-	// printf("%s\n", argv[4]);	
+	int inverted = 0;
 
 	sprintf(files_file, "%s", argv[1]);
 	sprintf(dict_file, "%s", argv[2]);
 	sprintf(query_file, "%s", argv[3]);
 	sprintf(output_dir, "%s", argv[4]);
-
-	// printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
-
-	load_files(files_file);
-	load_inv_dictionary(dict_file);
-	load_query(query_file);
+	sscanf(argv[5], "%d", &inverted);
 
 	sprintf(report_file, "%s/c_query_report.txt", output_dir);
+	// printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
 
+	// ALLOCATE AND INIT MEMORY FOR INV DICT
+
+	inv_dictionary = (unsigned int**)malloc(D*sizeof(unsigned int*));
+	for (int i = 0; i < D; i++) {
+		inv_dictionary[i] = (unsigned int*)malloc(INV_DICT_WIDTH*sizeof(unsigned int));	
+	}
+	match_idx = (unsigned int*)malloc(INV_DICT_WIDTH*sizeof(unsigned int));	
 	for(int j=0; j<INV_DICT_WIDTH; j++) {
 		match_idx[j] = 0xFFFFFFFF;
 	}
 
-#ifdef PROFILING
-	for (int i = 0; i<10000; i++) {
-		queryDictionary(query);
-		// findQueryOnes(query);
-	}
-#else
-	queryDictionary(query);
-#endif
+	// LOAD STUFF FROM FILES
+
+	load_query(query_file);
+	load_files(files_file);
+
+	if(inverted)
+		load_inv_dictionary(dict_file);
+	else
+		load_dictionary(dict_file);
+
+	// QUERY DICTIONARY
+
+	#ifdef PROFILING
+		for (int i = 0; i<10000; i++) {
+	#endif
+
+			if(inverted)
+				queryInvertedDictionary();
+			else {
+				findQueryOnes(query);
+				queryDictionary();
+			}
+
+	#ifdef PROFILING
+		}
+	#endif
+
+	// FINALIZE
 
 	reportQuery(report_file);
 
+	free(inv_dictionary);
+	free(match_idx);
+
 	return 0;
 }
-
-
-// int main_py(int argc, char **argv){
-
-// 	// Command-line arguments:
-// 	// D, itemmem input file, dictionary input file, query
-// 	if(argc != (ARG_COUNT)){
-// 		printf("Requires arguments: <files input file> <dictionary input file> <query input file> <output directory>\n");
-// 		return 1;
-// 	}
-
-// 	char files_file[MAX_FILE_NAME]; 
-// 	char dict_file[MAX_FILE_NAME];  
-// 	char query_file[MAX_FILE_NAME];
-// 	char output_dir[MAX_FILE_NAME];
-// 	char report_file[MAX_FILE_NAME];
-
-// 	sprintf(files_file, "%s", argv[0]);
-// 	sprintf(dict_file, "%s", argv[1]);
-// 	sprintf(query_file, "%s", argv[2]);
-// 	sprintf(output_dir, "%s", argv[3]);
-
-// 	// printf("files: %s\ndict: %s\nquery: %s\n", files_file, dict_file, query_file);
-
-// 	load_files(files_file);
-// 	load_inv_dictionary(dict_file);
-// 	load_query(query_file);
-
-// 	sprintf(report_file, "%s/c_query_report.txt", output_dir);
-
-// 	for(int j=0; j<INV_DICT_WIDTH; j++) {
-// 		match_idx[j] = 0xFFFFFFFF;
-// 	}
-
-// 	return 0;
-// }
