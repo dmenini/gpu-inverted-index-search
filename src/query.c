@@ -162,7 +162,6 @@ unsigned int findQueryOnes(char* query){
 		if(query[i] == '1')
 		{
 			query_ones[ones_cnt] = i;
-			printf("One position:\t%d\n", i);
 			ones_cnt++; 
 		}
 	}
@@ -176,15 +175,9 @@ unsigned int queryDictionary() {
 	for(unsigned int j=0; j<N_FILES; j++) {
 		result = 1;
 		for(unsigned int i=0; i<ones_cnt; i++) {
-			// if (result==1)
-				// printf("Bef %d %d:\t%d\n", j, i, result);
 			result = result & dictionary[j][query_ones[i]];
-			if(dictionary[j][query_ones[i]]==1){
-				// printf("Aft %d %d:\t%d\n", j, i, result);
-			}
 		}
 		if (result){
-			printf("Match at pos: %d\n", j);
 			matches[match_cnt] = j;
 			match_cnt++;
 		}
@@ -192,11 +185,7 @@ unsigned int queryDictionary() {
 }
 
 unsigned int queryInvertedDictionary() {
-	unsigned int match_pos = 0;
-	unsigned int temp_div = 0;
-	unsigned short curr_bit = 0;
 
-//////////////////////////     COMPUTATION STARTS HERE    //////////////////////////////////////////////
 	for(unsigned int i=0; i<D; i++) {
 		if(query[i] == '1') {
 			for(int j=0; j<INV_DICT_WIDTH; j++){
@@ -204,8 +193,15 @@ unsigned int queryInvertedDictionary() {
 			}
 		}
 	}
-	
+
+}
+
+unsigned int findMatchOnes(){
+	unsigned int match_pos = 0;
+	unsigned int temp_div = 0;
+	unsigned short curr_bit = 0;
 	int j = 0;
+	
 	for(j=0; j<INV_DICT_WIDTH-1; j++) {
 		temp_div = match_idx[j];
 		for(int i=1; i<=(sizeof(int)*8) && temp_div>0; i++) {
@@ -229,8 +225,6 @@ unsigned int queryInvertedDictionary() {
 			match_cnt++;
 		}
 	}
-
-//////////////////////////    COMPUTATION ENDS HERE    //////////////////////////////////////////////
 }    
 
 void reportQuery(char* report_f){
@@ -281,6 +275,8 @@ int main(int argc, char **argv){
 		match_idx[j] = 0xFFFFFFFF;
 	}
 
+	printf("INV_DICT_WIDTH:\t%d\n", INV_DICT_WIDTH);
+
 	// LOAD STUFF FROM FILES
 
 	load_query(query_file);
@@ -297,11 +293,17 @@ int main(int argc, char **argv){
 		for (int i = 0; i<10000; i++) {
 	#endif
 
-			if(inverted)
+			if(inverted) {
+				#ifdef PROFILING
+					findQueryOnes(query);
+				#endif
 				queryInvertedDictionary();
+				findMatchOnes();
+			}
 			else {
 				findQueryOnes(query);
 				queryDictionary();
+				findMatchOnes();
 			}
 
 	#ifdef PROFILING

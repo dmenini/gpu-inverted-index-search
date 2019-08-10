@@ -30,26 +30,24 @@ unsigned int matches[N_FILES];
 
 // inv_dict_width = width of inv dictionary in number of elements
 // int_size = size of an integer in bytes
-__global__ void queryKernel(unsigned int * __restrict__ inv_dictionary, unsigned int inv_dict_width, unsigned int inv_dict_width_pad, unsigned int * __restrict__ query_ones, unsigned int ones_cnt, unsigned int * matches, unsigned int int_size, unsigned int n_threads) {
+__global__ void queryKernel(const unsigned int * __restrict__ inv_dictionary, unsigned int inv_dict_width, unsigned int inv_dict_width_pad, const unsigned int * __restrict__ query_ones, unsigned int ones_cnt, unsigned int * matches, unsigned int int_size, unsigned int n_threads) {
 	unsigned short curr_bit = 0;
 	unsigned int match_pos;
 	unsigned int match_cnt = 0;
-
-	// __shared__ unsigned int match_idx_s[BLOCK_SIZE];
-	unsigned int match_idx_s;
+	unsigned int match_idx;
 
 	unsigned int index = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if(index < inv_dict_width){ //inv_dict_width = 657
-		match_idx_s = 0xFFFFFFFF;
+		match_idx = 0xFFFFFFFF;
 		for(int i = 0; i < ones_cnt; i++) {			
-			match_idx_s = match_idx_s & *(inv_dictionary + query_ones[i]*inv_dict_width_pad + index);
+			match_idx = match_idx & *(inv_dictionary + query_ones[i]*inv_dict_width_pad + index);
 		}
 
 		match_cnt = 0;
-		for(int j=1; j<=(int_size*8) && match_idx_s>0; j++) {
-			curr_bit = match_idx_s & 1;
-			match_idx_s = match_idx_s >> 1;
+		for(int j=1; j<=(int_size*8) && match_idx>0; j++) {
+			curr_bit = match_idx & 1;
+			match_idx = match_idx >> 1;
 			if(curr_bit==1) {
 				match_pos = (index + 1)*int_size*8 - j + 1; // starts indexing at 1 not 0
 				matches[index*int_size*8+match_cnt] = match_pos;
@@ -229,10 +227,10 @@ int main(int argc, char** argv){
 		queryKernel<<<N_BLOCKS, BLOCK_SIZE>>>((unsigned int *)d_inv_dict, INV_DICT_WIDTH, INV_DICT_WIDTH_PAD, d_query_ones, ones_cnt, d_matches, sizeof(int), N_THREADS);
 		cudaMemcpy(matches, d_matches, N_FILES*sizeof(unsigned int), cudaMemcpyDeviceToHost);
 		// }
-		// printMatches();
 
 		load_files(files_file);
 		reportQuery(report_file);
+
 
 		cudaFree(d_inv_dict);
 		cudaFree(d_query_ones);

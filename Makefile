@@ -15,6 +15,8 @@ DUP ?= 1
 dict_file 		= dictionary_$(DUP).bin
 inv_dict_file = inv_dictionary_$(DUP).int
 files_file		= files_$(DUP).txt
+prof_dir			= prof
+prof_file			= prof_$(DUP).txt
 N_FILES 	?= $(shell echo $(DUP)*21024 | bc)
 
 ifeq ($(PROFILING), 1)
@@ -93,16 +95,27 @@ query-c: compile-c
 query-cu: compile-cu
 	./bin/query-cu.out ./out/$(files_file) ./out/$(inv_dict_file) ./out/query.txt ./out
 
-profile-c: query-c
+queries: query-c query-cu-
+
+profile-c: 
+	$(MAKE) query-c
 	mv gmon.out out/
 	gprof -b bin/query out/gmon.out
+	gprof -b bin/query out/gmon.out > ${prof_dir}/c_$(prof_file)
 	rm out/gmon.out
+	# $(MAKE) query-basic-c
+	# mv gmon.out out/
+	# gprof -b bin/query out/gmon.out
+	# gprof -b bin/query out/gmon.out > ${prof_dir}/c_basic_$(prof_file)
+	# rm out/gmon.out
 
 profile-cu: compile-cu # compile-c profile-c
-	nvprof ./bin/query-cu.out ./out/$(files_file) ./out/$(inv_dict_file) ./out/query.txt ./out
+	nvprof ./bin/query-cu.out ./out/$(files_file) ./out/$(inv_dict_file) ./out/query.txt ./out > ${prof_dir}/cu_$(prof_file)
 	@echo "******************************************************************************************************************************************************"
 	@echo "******************************************************************************************************************************************************"
-	nvprof ./bin/query-cu-half.out ./out/$(files_file) ./out/$(inv_dict_file) ./out/query.txt ./out
+	nvprof ./bin/query-cu-half.out ./out/$(files_file) ./out/$(inv_dict_file) ./out/query.txt ./out > ${prof_dir}/cu_half_$(prof_file)
+
+profile: profile-c profile-cu
 
 nvvp: compile-cu
 	nvprof --analysis-metrics -f -o out/cuda_nvprof_rep.nvvp ./bin/query-cu.out ./out/$(files_file) ./out/$(inv_dict_file) ./out/query.txt ./out
